@@ -46,4 +46,4 @@ class QAEvaluator(Evaluator):
 
         mean_average_precision, mean_reciprocal_rank = get_map_mrr(qids, predictions, labels, self.data_loader.device)
 
-        return [mean_average_precision, mean_reciprocal_rank], ['cross entropy loss', 'map', 'mrr']
+        return [mean_average_precision, mean_reciprocal_rank], ['map', 'mrr']

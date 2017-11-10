@@ -60,7 +60,13 @@ class MPCNN(nn.Module):
         EXT_FEATS = 4 if ext_feats else 0
         n_feat_h = 3 * len(self.filter_widths) * COMP_2_COMPONENTS
         n_feat_v = (
-            # comparison units from holistic conv for min, max, mean pooling for non-infinite widths
+            # compar
+            #
+            #
+            #
+            #
+            #
+            # ison units from holistic conv for min, max, mean pooling for non-infinite widths
             3 * ((len(self.filter_widths) - 1) ** 2) * COMP_1_COMPONENTS_HOLISTIC +
             # comparison units from holistic conv for min, max, mean pooling for infinite widths
             3 * 3 +
