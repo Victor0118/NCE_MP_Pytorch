@@ -3,6 +3,26 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class PairwiseConv(nn.Module):
+    """Pairwise model based on MP-CNN"""
+    def __init__(self, model):
+        super(PairwiseConv, self).__init__()
+        self.convModel = model
+        self.dropout = nn.Dropout(0.5)
+        self.linearLayer = nn.Linear(model.n_hidden, 1)
+        self.posModel = self.convModel
+        self.negModel = self.convModel
+
+    def forward(self, input):
+        pos = self.posModel(input[0].sentence_1, input[0].sentence_2, input[0].ext_feats)
+        neg = self.negModel(input[1].sentence_1, input[1].sentence_2, input[1].ext_feats)
+        pos = self.dropout(pos)
+        neg = self.dropout(neg)
+        pos = self.linearLayer(pos)
+        neg = self.linearLayer(neg)
+        combine = torch.cat([pos, neg], 1)
+        return combine
+
 
 class MPCNN(nn.Module):
 
@@ -14,6 +34,7 @@ class MPCNN(nn.Module):
         self.n_per_dim_filters = n_per_dim_filters
         self.filter_widths = filter_widths
         self.ext_feats = ext_feats
+        self.n_hidden = hidden_layer_units
         holistic_conv_layers = []
         per_dim_conv_layers = []
 
@@ -51,9 +72,9 @@ class MPCNN(nn.Module):
         self.final_layers = nn.Sequential(
             nn.Linear(n_feat, hidden_layer_units),
             nn.Tanh(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_layer_units, num_classes),
-            nn.LogSoftmax()
+            # nn.Dropout(dropout),
+            # nn.Linear(hidden_layer_units, num_classes),
+            # nn.LogSoftmax()
         )
 
     def _get_blocks_for_sentence(self, sent):

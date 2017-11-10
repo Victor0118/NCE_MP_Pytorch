@@ -1,4 +1,4 @@
-from mp_cnn.trainers.qa_trainer import QATrainer
+from NCE_MP_Pytorch.trainers.qa_trainer import QATrainer
 
 
 class TRECQATrainer(QATrainer):

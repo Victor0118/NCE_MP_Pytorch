@@ -8,10 +8,10 @@ import numpy as np
 import torch
 import torch.optim as optim
 
-from mp_cnn.dataset import MPCNNDatasetFactory
-from mp_cnn.evaluation import MPCNNEvaluatorFactory
-from mp_cnn.model import MPCNN
-from mp_cnn.train import MPCNNTrainerFactory
+from NCE_MP_Pytorch.dataset import MPCNNDatasetFactory
+from NCE_MP_Pytorch.evaluation import MPCNNEvaluatorFactory
+from NCE_MP_Pytorch.model import MPCNN, PairwiseConv
+from NCE_MP_Pytorch.train import MPCNNTrainerFactory
 
 
 if __name__ == '__main__':
@@ -41,6 +41,10 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=1, help='random seed (default: 1)')
     parser.add_argument('--tensorboard', action='store_true', default=False, help='use TensorBoard to visualize training (default: false)')
     parser.add_argument('--run-label', type=str, help='label to describe run')
+    parser.add_argument('--dev_log_interval', type=int, default=100, help='how many batches to wait before logging validation status (default: 100)')
+    parser.add_argument('--neg_num', type=int, default=8, help='number of negative samples for each question')
+    parser.add_argument('--neg_sample', type=str, default="random", help='strategy of negative sampling')
+
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -68,9 +72,11 @@ if __name__ == '__main__':
     model = MPCNN(embedding, args.holistic_filters, args.per_dim_filters, filter_widths,
                     args.hidden_units, dataset_cls.NUM_CLASSES, args.dropout, args.sparse_features)
 
+    pw_model = PairwiseConv(model)
+
     if args.device != -1:
         with torch.cuda.device(args.device):
-            model.cuda()
+            pw_model.cuda()
 
     optimizer = None
     if args.optimizer == 'adam':
@@ -80,33 +86,37 @@ if __name__ == '__main__':
     else:
         raise ValueError('optimizer not recognized: it should be either adam or sgd')
 
-    train_evaluator = MPCNNEvaluatorFactory.get_evaluator(dataset_cls, model, train_loader, args.batch_size, args.device)
-    test_evaluator = MPCNNEvaluatorFactory.get_evaluator(dataset_cls, model, test_loader, args.batch_size, args.device)
-    dev_evaluator = MPCNNEvaluatorFactory.get_evaluator(dataset_cls, model, dev_loader, args.batch_size, args.device)
+    train_evaluator = MPCNNEvaluatorFactory.get_evaluator(dataset_cls, pw_model, train_loader, args.batch_size, args.device)
+    test_evaluator = MPCNNEvaluatorFactory.get_evaluator(dataset_cls, pw_model, test_loader, args.batch_size, args.device)
+    dev_evaluator = MPCNNEvaluatorFactory.get_evaluator(dataset_cls, pw_model, dev_loader, args.batch_size, args.device)
 
     trainer_config = {
         'optimizer': optimizer,
         'batch_size': args.batch_size,
         'log_interval': args.log_interval,
+        'dev_log_interval': args.dev_log_interval,
         'model_outfile': args.model_outfile,
         'lr_reduce_factor': args.lr_reduce_factor,
         'patience': args.patience,
         'tensorboard': args.tensorboard,
         'run_label': args.run_label,
-        'logger': logger
+        'logger': logger,
+        'neg_num': args.neg_num,
+        'neg_sample': args.neg_sample,
+        'device_id': args.device
     }
-    trainer = MPCNNTrainerFactory.get_trainer(args.dataset, model, train_loader, trainer_config, train_evaluator, test_evaluator, dev_evaluator)
+    trainer = MPCNNTrainerFactory.get_trainer(args.dataset, pw_model, train_loader, trainer_config, train_evaluator, test_evaluator, dev_evaluator)
 
     if not args.skip_training:
         total_params = 0
-        for param in model.parameters():
+        for param in pw_model.parameters():
             size = [s for s in param.size()]
             total_params += np.prod(size)
         logger.info('Total number of parameters: %s', total_params)
         trainer.train(args.epochs)
 
-    model = torch.load(args.model_outfile)
-    saved_model_evaluator = MPCNNEvaluatorFactory.get_evaluator(dataset_cls, model, test_loader, args.batch_size, args.device)
+    pw_model = torch.load(args.model_outfile)
+    saved_model_evaluator = MPCNNEvaluatorFactory.get_evaluator(dataset_cls, pw_model, test_loader, args.batch_size, args.device)
     scores, metric_names = saved_model_evaluator.get_scores()
     logger.info('Evaluation metrics for test')
     logger.info('\t'.join([' '] + metric_names))

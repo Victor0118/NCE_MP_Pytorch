@@ -1,7 +1,7 @@
-from mp_cnn.evaluators.sick_evaluator import SICKEvaluator
-from mp_cnn.evaluators.msrvid_evaluator import MSRVIDEvaluator
-from mp_cnn.evaluators.trecqa_evaluator import TRECQAEvaluator
-from mp_cnn.evaluators.wikiqa_evaluator import WikiQAEvaluator
+from NCE_MP_Pytorch.evaluators.sick_evaluator import SICKEvaluator
+from NCE_MP_Pytorch.evaluators.msrvid_evaluator import MSRVIDEvaluator
+from NCE_MP_Pytorch.evaluators.trecqa_evaluator import TRECQAEvaluator
+from NCE_MP_Pytorch.evaluators.wikiqa_evaluator import WikiQAEvaluator
 
 
 class MPCNNEvaluatorFactory(object):

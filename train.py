@@ -1,7 +1,7 @@
-from mp_cnn.trainers.sick_trainer import SICKTrainer
-from mp_cnn.trainers.msrvid_trainer import MSRVIDTrainer
-from mp_cnn.trainers.trecqa_trainer import TRECQATrainer
-from mp_cnn.trainers.wikiqa_trainer import WikiQATrainer
+from NCE_MP_Pytorch.trainers.sick_trainer import SICKTrainer
+from NCE_MP_Pytorch.trainers.msrvid_trainer import MSRVIDTrainer
+from NCE_MP_Pytorch.trainers.trecqa_trainer import TRECQATrainer
+from NCE_MP_Pytorch.trainers.wikiqa_trainer import WikiQATrainer
 
 
 class MPCNNTrainerFactory(object):

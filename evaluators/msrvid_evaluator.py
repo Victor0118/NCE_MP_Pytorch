@@ -2,7 +2,7 @@ from scipy.stats import pearsonr
 import torch
 import torch.nn.functional as F
 
-from mp_cnn.evaluators.evaluator import Evaluator
+from NCE_MP_Pytorch.evaluators.evaluator import Evaluator
 
 
 class MSRVIDEvaluator(Evaluator):
