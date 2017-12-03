@@ -3,6 +3,8 @@
 This is a PyTorch implementation of the following paper
 
 * Hua He, Kevin Gimpel, and Jimmy Lin. [Multi-Perspective Sentence Similarity Modeling with Convolutional Neural Networks](http://aclweb.org/anthology/D/D15/D15-1181.pdf). *Proceedings of the 2015 Conference on Empirical Methods in Natural Language Processing (EMNLP 2015)*, pages 1576-1586.
+* Jinfeng Rao, Hua He, and Jimmy Lin. [Noise-Contrastive Estimation for Answer Selection with Deep Neural Networks.](http://dl.acm.org/citation.cfm?id=2983872) *Proceedings of the 25th ACM International on Conference on Information and Knowledge Management (CIKM 2016)*, pages 1913-1916.
+
 
 The SICK and MSRVID datasets are available in https://github.com/castorini/data, as well as the GloVe word embeddings.
 

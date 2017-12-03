@@ -4,7 +4,7 @@ import torch
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from NCE_MP_Pytorch.trainers.trainer import Trainer
+from mp_cnn.trainers.trainer import Trainer
 from utils.nce_neighbors import get_nearest_neg_id, get_random_neg_id, get_batch
 
 class QATrainer(Trainer):
@@ -17,17 +17,15 @@ class QATrainer(Trainer):
         self.best_dev_mrr = 0
         self.false_samples = {}
         self.question2answer = {}
-        self.early_stop = False
         self.start = time.time()
-        self.iters_not_improved = 0
         self.q2neg = {}
         self.iteration = 0
-        self.dev_log_template = ' '.join(
-            '{:>6.0f},{:>5.0f},{:>11.6f},{:>11.6f}'.split(','))
-        self.log_template = ' '.join(
-            '{:>6.0f},{:>5.0f},{:>11.6f},{:>11.6f}'.split(','))
-
-
+        self.name = self.train_loader.dataset.NAME
+        self.neg_num = trainer_config['neg_num'] if 'neg_num' in trainer_config else 0
+        self.neg_sample = trainer_config['neg_sample'] if 'neg_sample' in trainer_config else ''
+        self.log_template = 'Train Epoch:{} [{}/{}]\tLoss:{}  Acc:{}'
+        self.margin_label = trainer_config['margin_label']
+        self.dev_index = 1
 
     def train_epoch(self, epoch):
         self.model.train()
@@ -74,7 +72,6 @@ class QATrainer(Trainer):
                     elif epoch == 2 or self.neg_sample == "random":
                         near_list = get_random_neg_id(self.q2neg, qid_i, k=self.neg_num)
                     else:
-                        # debug_qid = qid_i
                         near_list = get_nearest_neg_id(features[i], self.question2answer[qid_i]["neg"], distance="cosine", k=self.neg_num)
 
                     batch_near_list.extend(near_list)
@@ -110,8 +107,11 @@ class QATrainer(Trainer):
                         answer_i = answer_i[answer_i != 1]
                         self.question2answer[qid_i]["neg"][aid_i] = {"answer": answer_i}
 
+                    if "ext_feat" in self.question2answer[qid_i]["neg"][aid_i]:
+                        del self.question2answer[qid_i]["neg"][aid_i]["ext_feat"]
                     self.question2answer[qid_i]["neg"][aid_i]["feature"] = features[i].data.cpu().numpy()
                     self.question2answer[qid_i]["neg"][aid_i]["ext_feat"] = ext_feat_i
+
 
                     if epoch == 1:
                         if qid_i not in self.q2neg:
@@ -119,7 +119,9 @@ class QATrainer(Trainer):
 
                         self.q2neg[qid_i].append(aid_i)
 
-                        # pack the selected pos and neg samples into the torchtext batch and train
+            del features
+
+            # pack the selected pos and neg samples into the torchtext batch and train
             if epoch != 1:
                 true_batch_size = len(new_train_neg["answer"])
                 if true_batch_size != 0:
@@ -137,11 +139,13 @@ class QATrainer(Trainer):
                                                              (0, max_len_q - new_train_neg["question"][j].size()[0]),
                                                              value=1)
 
+
                     pos_batch = get_batch(new_train_pos["question"], new_train_pos["answer"], new_train_pos["ext_feat"],
                                           true_batch_size)
                     neg_batch = get_batch(new_train_neg["question"], new_train_neg["answer"], new_train_neg["ext_feat"],
                                           true_batch_size)
 
+                    self.model.train()
                     self.optimizer.zero_grad()
                     output = self.model([pos_batch, neg_batch])
 
@@ -149,62 +153,58 @@ class QATrainer(Trainer):
                     acc += sum(cmp.data.cpu().numpy())
                     tot += true_batch_size
 
-                    loss = self.loss(output[:, 0], output[:, 1], torch.autograd.Variable(torch.ones(1).cuda(device=self.device_id)))
+                    loss = self.loss(output[:, 0], output[:, 1], self.margin_label)
                     loss_num = loss.data.cpu().numpy()[0]
                     total_loss += loss_num
                     loss.backward()
                     self.optimizer.step()
-                    # Evaluate performance on train and validation set
+
+                    del output
+                    del loss
+                    del new_train_neg
+                    del new_train_pos
+                    del pos_batch
+                    del neg_batch
+
                     if self.iteration % self.dev_log_interval == 1 and epoch != 1:
-                        train_map, train_mrr = self.evaluate(self.train_evaluator, 'train')
+                        dev_map, dev_mrr = self.evaluate(self.dev_evaluator, 'dev')
+                        test_map, test_mrr = self.evaluate(self.test_evaluator, 'test')
 
                         if self.use_tensorboard:
-                            self.writer.add_scalar('{}/train/map'.format(self.train_loader.dataset.NAME), train_map,
-                                                   epoch)
-                            self.writer.add_scalar('{}/train/mrr'.format(self.train_loader.dataset.NAME), train_mrr,
-                                                   epoch)
+                            self.writer.add_scalar('{}/dev/map'.format(self.name), dev_map, self.dev_index)
+                            self.writer.add_scalar('{}/dev/mrr'.format(self.name), dev_mrr, self.dev_index)
+                            self.writer.add_scalar('{}/test/map'.format(self.name), test_map, self.dev_index)
+                            self.writer.add_scalar('{}/test/mrr'.format(self.name), test_mrr, self.dev_index)
+                            self.writer.add_scalar('{}/train/loss'.format(self.name), loss_num, self.dev_index)
+                            self.writer.add_scalar('{}/lr'.format(self.train_loader.dataset.NAME),
+                                                   self.optimizer.param_groups[0]['lr'], self.dev_index)
 
-                        dev_map, dev_mrr = self.evaluate(self.dev_evaluator, 'dev')
-                        print(self.dev_log_template.format(epoch, batch_idx, loss_num, acc / tot))
-
+                        self.dev_index += 1
                         if self.best_dev_mrr < dev_mrr:
                             torch.save(self.model, self.model_outfile)
-                            self.iters_not_improved = 0
                             self.best_dev_mrr = dev_mrr
                             self.best_dev_map = dev_map
-                        else:
-                            self.iters_not_improved += 1
-                            if self.iters_not_improved >= self.patience:
-                                self.early_stop = True
-                                break
 
                     if self.iteration % self.log_interval == 1 and epoch != 1:
                         # logger.info progress message
-                        self.logger.info(self.dev_log_template.format(epoch, batch_idx, loss_num, acc / tot))
+                        self.logger.info(self.log_template.format(epoch, min(batch_idx * self.batch_size, len(batch.dataset.examples)),
+                                                                  len(batch.dataset.examples), loss_num, acc / tot))
 
         return total_loss
 
     def train(self, epochs):
-
-        header = ' Epoch  Batch  Average_Loss Train_Accuracy'  # Train/MAP Train/MRR Dev/MAP  Dev/MRR Test/MAP Test/MRR
-        self.logger.info(header)
 
         scheduler = ReduceLROnPlateau(self.optimizer, mode='max', factor=self.lr_reduce_factor, patience=self.patience)
         epoch_times = []
         self.start = time.time()
         for epoch in range(1, epochs + 1):
             start = time.time()
-            self.logger.info('Epoch {} started...'.format(epoch))
             train_loss = self.train_epoch(epoch)
 
             end = time.time()
             duration = end - start
             self.logger.info('Epoch {} finished in {:.2f} minutes'.format(epoch, duration / 60))
             epoch_times.append(duration)
-
-            if self.early_stop:
-                self.logger.log("Early Stopping. Epoch: {}, Best Dev Map: {} Dev Mrr: {}".format(epoch, self.best_dev_map, self.best_dev_mrr))
-                break
 
             scheduler.step(train_loss)
 

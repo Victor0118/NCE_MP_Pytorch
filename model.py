@@ -8,7 +8,7 @@ class PairwiseConv(nn.Module):
     def __init__(self, model):
         super(PairwiseConv, self).__init__()
         self.convModel = model
-        self.dropout = nn.Dropout(0.5)
+        self.dropout = nn.Dropout(model.dropout)
         self.linearLayer = nn.Linear(model.n_hidden, 1)
         self.posModel = self.convModel
         self.negModel = self.convModel
@@ -35,6 +35,7 @@ class MPCNN(nn.Module):
         self.filter_widths = filter_widths
         self.ext_feats = ext_feats
         self.n_hidden = hidden_layer_units
+        self.dropout = dropout
         holistic_conv_layers = []
         per_dim_conv_layers = []
 
@@ -60,13 +61,7 @@ class MPCNN(nn.Module):
         EXT_FEATS = 4 if ext_feats else 0
         n_feat_h = 3 * len(self.filter_widths) * COMP_2_COMPONENTS
         n_feat_v = (
-            # compar
-            #
-            #
-            #
-            #
-            #
-            # ison units from holistic conv for min, max, mean pooling for non-infinite widths
+            # comparison units from holistic conv for min, max, mean pooling for non-infinite widths
             3 * ((len(self.filter_widths) - 1) ** 2) * COMP_1_COMPONENTS_HOLISTIC +
             # comparison units from holistic conv for min, max, mean pooling for infinite widths
             3 * 3 +
@@ -77,10 +72,7 @@ class MPCNN(nn.Module):
 
         self.final_layers = nn.Sequential(
             nn.Linear(n_feat, hidden_layer_units),
-            nn.Tanh(),
-            # nn.Dropout(dropout),
-            # nn.Linear(hidden_layer_units, num_classes),
-            # nn.LogSoftmax()
+            nn.Tanh()
         )
 
     def _get_blocks_for_sentence(self, sent):
