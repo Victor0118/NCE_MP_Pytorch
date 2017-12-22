@@ -1,4 +1,5 @@
 import time
+import numpy as np
 
 import torch
 import torch.nn.functional as F
@@ -44,6 +45,7 @@ class QATrainer(Trainer):
             batch_near_list = []
             batch_qid = []
             batch_aid = []
+            new_near_score = []
 
             for i in range(batch.batch_size):
                 label_i = batch.label[i].cpu().data.numpy()[0]
@@ -72,7 +74,9 @@ class QATrainer(Trainer):
                     elif epoch == 2 or self.neg_sample == "random":
                         near_list = get_random_neg_id(self.q2neg, qid_i, k=self.neg_num)
                     else:
-                        near_list = get_nearest_neg_id(features[i], self.question2answer[qid_i]["neg"], distance="cosine", k=self.neg_num)
+                        near_list, near_score = get_nearest_neg_id(features[i], self.question2answer[qid_i]["neg"],
+                                                                   distance="cosine", k=self.neg_num, weight=True)
+                        new_near_score.extend(near_score)
 
                     batch_near_list.extend(near_list)
 
@@ -120,7 +124,6 @@ class QATrainer(Trainer):
                         self.q2neg[qid_i].append(aid_i)
 
             del features
-
             # pack the selected pos and neg samples into the torchtext batch and train
             if epoch != 1:
                 true_batch_size = len(new_train_neg["answer"])
@@ -154,6 +157,10 @@ class QATrainer(Trainer):
                     tot += true_batch_size
 
                     loss = self.loss(output[:, 0], output[:, 1], self.margin_label)
+                    if len(new_near_score) != 0:
+                        # loss *= torch.autograd.variable.Variable(torch.from_numpy(np.array(new_near_score)).cuda())
+                        loss *= np.mean(new_near_score)
+
                     loss_num = loss.data.cpu().numpy()[0]
                     total_loss += loss_num
                     loss.backward()

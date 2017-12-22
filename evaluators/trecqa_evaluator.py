@@ -1,4 +1,4 @@
-from NCE_MP_Pytorch.evaluators.qa_evaluator import QAEvaluator
+from nce.NCE_MP_Pytorch.evaluators.qa_evaluator import QAEvaluator
 
 
 class TRECQAEvaluator_NCE(QAEvaluator):
