@@ -10,7 +10,7 @@ from utils.nce_neighbors import get_nearest_neg_id, get_random_neg_id, get_batch
 
 class QATrainer(Trainer):
 
-    def __init__(self, model, train_loader, trainer_config, train_evaluator, test_evaluator, dev_evaluator=None):
+    def __init__(self, model, train_loader, trainer_config, train_evaluator, test_evaluator, dev_evaluator=None, weighting=False):
         super(QATrainer, self).__init__(model, train_loader, trainer_config, train_evaluator, test_evaluator, dev_evaluator)
         self.loss = torch.nn.MarginRankingLoss(margin=1, size_average=True)
         self.question2answer = {}
@@ -22,11 +22,13 @@ class QATrainer(Trainer):
         self.q2neg = {}
         self.iteration = 0
         self.name = self.train_loader.dataset.NAME
+        self.dev_log_interval = trainer_config['dev_log_interval']
         self.neg_num = trainer_config['neg_num'] if 'neg_num' in trainer_config else 0
         self.neg_sample = trainer_config['neg_sample'] if 'neg_sample' in trainer_config else ''
         self.log_template = 'Train Epoch:{} [{}/{}]\tLoss:{}  Acc:{}'
         self.margin_label = trainer_config['margin_label']
         self.dev_index = 1
+        self.weighting = weighting
 
     def train_epoch(self, epoch):
         self.model.train()
@@ -157,7 +159,10 @@ class QATrainer(Trainer):
                     tot += true_batch_size
 
                     loss = self.loss(output[:, 0], output[:, 1], self.margin_label)
-                    if len(new_near_score) != 0:
+                    if len(new_near_score) != 0 and self.weighting:
+                        # Element wise weighting hasn't been implemented for MarginRankingLoss by pytorch
+                        # Apply the mean score and set branch size to 1 as weighting implementation temporarily here
+                        # Reference: https://github.com/pytorch/pytorch/issues/264
                         # loss *= torch.autograd.variable.Variable(torch.from_numpy(np.array(new_near_score)).cuda())
                         loss *= np.mean(new_near_score)
 

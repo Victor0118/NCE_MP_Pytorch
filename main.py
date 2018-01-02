@@ -10,7 +10,7 @@ import torch.optim as optim
 
 from mp_cnn.dataset import MPCNNDatasetFactory
 from mp_cnn.evaluation import MPCNNEvaluatorFactory
-from nce.NCE_MP_Pytorch.model import MPCNN, PairwiseConv
+from nce.nce_pairwise_mp.model import MPCNN4NCE, PairwiseConv
 from mp_cnn.train import MPCNNTrainerFactory
 
 
@@ -77,7 +77,7 @@ if __name__ == '__main__':
                                                                                                     utils_trecqa=args.utils_trecqa)
 
     filter_widths = list(range(1, args.max_window_size + 1)) + [np.inf]
-    model = MPCNN(embedding, args.holistic_filters, args.per_dim_filters, filter_widths,
+    model = MPCNN4NCE(embedding, args.holistic_filters, args.per_dim_filters, filter_widths,
                     args.hidden_units, dataset_cls.NUM_CLASSES, args.dropout, args.sparse_features)
 
     pw_model = PairwiseConv(model)
