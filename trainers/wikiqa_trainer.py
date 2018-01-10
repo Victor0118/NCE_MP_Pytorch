@@ -1,7 +1,7 @@
-from mp_cnn.trainers.qa_trainer import QATrainer
+from nce.nce_pairwise_mp.trainers.qa_trainer import QATrainer
 
 
-class WikiQATrainer(QATrainer):
+class WikiQATrainerNCE(QATrainer):
 
     def __init__(self, model, train_loader, trainer_config, train_evaluator, test_evaluator, dev_evaluator=None):
-        super(WikiQATrainer, self).__init__(model, train_loader, trainer_config, train_evaluator, test_evaluator, dev_evaluator)
+        super(WikiQATrainerNCE, self).__init__(model, train_loader, trainer_config, train_evaluator, test_evaluator, dev_evaluator)

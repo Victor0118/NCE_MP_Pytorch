@@ -1,4 +1,4 @@
-import torch.nn.functional as F
+import numpy as np
 
 from mp_cnn.evaluators.evaluator import Evaluator
 from utils.relevancy_metrics import get_map_mrr
@@ -11,24 +11,23 @@ class QAEvaluator(Evaluator):
 
     def get_scores(self):
         self.model.eval()
-        test_cross_entropy_loss = 0
         qids = []
-        true_labels = []
         predictions = []
+        labels = []
 
         for batch in self.data_loader:
-            qids.extend(batch.id.data.cpu().numpy())
-            output = self.model(batch.sentence_1, batch.sentence_2, batch.ext_feats)
-            test_cross_entropy_loss += F.cross_entropy(output, batch.label, size_average=False).data[0]
+            scores = self.model.convModel(batch.sentence_1, batch.sentence_2, batch.ext_feats)
+            scores = self.model.linearLayer(scores)
+            qid_array = np.transpose(batch.id.cpu().data.numpy())
+            score_array = scores.cpu().data.numpy().reshape(-1)
+            true_label_array = np.transpose(batch.label.cpu().data.numpy())
 
-            true_labels.extend(batch.label.data.cpu().numpy())
-            predictions.extend(output.data.exp()[:, 1].cpu().numpy())
+            qids.extend(qid_array.tolist())
+            predictions.extend(score_array.tolist())
+            labels.extend(true_label_array.tolist())
 
-            del output
+            del scores
 
-        qids = list(map(lambda n: int(round(n * 10, 0)) / 10, qids))
+        mean_average_precision, mean_reciprocal_rank = get_map_mrr(qids, predictions, labels, self.data_loader.device)
 
-        mean_average_precision, mean_reciprocal_rank = get_map_mrr(qids, predictions, true_labels, self.data_loader.device)
-        test_cross_entropy_loss /= len(batch.dataset.examples)
-
-        return [test_cross_entropy_loss, mean_average_precision, mean_reciprocal_rank], ['cross entropy loss', 'map', 'mrr']
+        return [mean_average_precision, mean_reciprocal_rank], ['map', 'mrr']
