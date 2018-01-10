@@ -192,7 +192,8 @@ class QATrainer(Trainer):
 
                         self.dev_index += 1
                         if self.best_dev_mrr < dev_mrr:
-                            torch.save(self.model, self.model_outfile)
+                            if epoch != 2:
+                                torch.save(self.model, self.model_outfile)
                             self.best_dev_mrr = dev_mrr
                             self.best_dev_map = dev_map
 
