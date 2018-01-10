@@ -95,12 +95,12 @@ class QATrainer(Trainer):
                             new_train_pos["ext_feat"].append(ext_feat_i)
 
                             near_answer = self.question2answer[qid_i]["neg"][near_id]["answer"]
-                            if question_i.size()[0] > max_len_q:
-                                max_len_q = question_i.size()[0]
-                            if near_answer.size()[0] > max_len_a:
-                                max_len_a = near_answer.size()[0]
-                            if answer_i.size()[0] > max_len_a:
-                                max_len_a = answer_i.size()[0]
+                            if question_i.size(0) > max_len_q:
+                                max_len_q = question_i.size(0)
+                            if near_answer.size(0) > max_len_a:
+                                max_len_a = near_answer.size(0)
+                            if answer_i.size(0) > max_len_a:
+                                max_len_a = answer_i.size(0)
 
                             ext_feat_neg = self.question2answer[qid_i]["neg"][near_id]["ext_feat"]
                             new_train_neg["answer"].append(near_answer)
@@ -132,16 +132,16 @@ class QATrainer(Trainer):
                 if true_batch_size != 0:
                     for j in range(true_batch_size):
                         new_train_neg["answer"][j] = F.pad(new_train_neg["answer"][j],
-                                                           (0, max_len_a - new_train_neg["answer"][j].size()[0]),
+                                                           (0, max_len_a - new_train_neg["answer"][j].size(0)),
                                                            value=1)
                         new_train_pos["answer"][j] = F.pad(new_train_pos["answer"][j],
-                                                           (0, max_len_a - new_train_pos["answer"][j].size()[0]),
+                                                           (0, max_len_a - new_train_pos["answer"][j].size(0)),
                                                            value=1)
                         new_train_pos["question"][j] = F.pad(new_train_pos["question"][j],
-                                                             (0, max_len_q - new_train_pos["question"][j].size()[0]),
+                                                             (0, max_len_q - new_train_pos["question"][j].size(0)),
                                                              value=1)
                         new_train_neg["question"][j] = F.pad(new_train_neg["question"][j],
-                                                             (0, max_len_q - new_train_neg["question"][j].size()[0]),
+                                                             (0, max_len_q - new_train_neg["question"][j].size(0)),
                                                              value=1)
 
 
@@ -170,13 +170,6 @@ class QATrainer(Trainer):
                     total_loss += loss_num
                     loss.backward()
                     self.optimizer.step()
-
-                    del output
-                    del loss
-                    del new_train_neg
-                    del new_train_pos
-                    del pos_batch
-                    del neg_batch
 
                     if self.iteration % self.dev_log_interval == 1 and epoch != 1:
                         dev_map, dev_mrr = self.evaluate(self.dev_evaluator, 'dev')

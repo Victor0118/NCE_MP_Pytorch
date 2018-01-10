@@ -1,4 +1,4 @@
-# MP-CNN PyTorch Implementation
+# NCE-MP-CNN model PyTorch Implementation
 
 This is a PyTorch implementation of the following paper
 
